@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/bitrise-io/go-xcode/autocodesign/devportalclient"
 	"strings"
 
 	"github.com/bitrise-io/go-steputils/stepconf"
 	"github.com/bitrise-io/go-utils/sliceutil"
 	"github.com/bitrise-io/go-xcode/autocodesign"
-	"github.com/bitrise-io/go-xcode/autocodesign/certdownloader"
+	"github.com/bitrise-io/go-xcode/codesign"
 )
 
 // Config holds the step inputs
@@ -20,9 +19,10 @@ type Config struct {
 
 	BitriseConnection string `env:"apple_service_connection,opt[api-key,apple-id]"`
 
-	RegisterTestDevices bool `env:"register_test_devices,opt[yes,no]"`
-	MinProfileDaysValid int  `env:"min_profile_validity,required"`
-	SignUITestTargets   bool `env:"sign_uitest_targets,opt[yes,no]"`
+	RegisterTestDevices bool   `env:"register_test_devices,opt[yes,no]"`
+	MinProfileDaysValid int    `env:"min_profile_validity,required"`
+	SignUITestTargets   bool   `env:"sign_uitest_targets,opt[yes,no]"`
+	TeamID              string `env:"apple_team_id"`
 
 	CertificateURLList        string          `env:"certificate_url_list,required"`
 	CertificatePassphraseList stepconf.Secret `env:"passphrase_list,required"`
@@ -51,35 +51,17 @@ func (c Config) ValidateCertificates() ([]string, []string, error) {
 	return pfxURLs, passphrases, nil
 }
 
-// Certificates returns an array of p12 file URLs and passphrases
-func (c Config) Certificates() ([]certdownloader.CertificateAndPassphrase, error) {
-	pfxURLs, passphrases, err := c.ValidateCertificates()
-	if err != nil {
-		return nil, err
-	}
-
-	files := make([]certdownloader.CertificateAndPassphrase, len(pfxURLs))
-	for i, pfxURL := range pfxURLs {
-		files[i] = certdownloader.CertificateAndPassphrase{
-			URL:        pfxURL,
-			Passphrase: passphrases[i],
-		}
-	}
-
-	return files, nil
-}
-
 // SplitAndClean ...
 func splitAndClean(list string, sep string, omitEmpty bool) (items []string) {
 	return sliceutil.CleanWhitespace(strings.Split(list, sep), omitEmpty)
 }
 
-func parseClientType(bitriseConnection string) (devportalclient.ClientType, error) {
+func parseAuthType(bitriseConnection string) (codesign.AuthType, error) {
 	switch bitriseConnection {
 	case "api-key":
-		return devportalclient.APIKeyClient, nil
+		return codesign.APIKeyAuth, nil
 	case "apple-id":
-		return devportalclient.AppleIDClient, nil
+		return codesign.AppleIDAuth, nil
 	default:
 		return 0, fmt.Errorf("invalid connection input: %s", bitriseConnection)
 	}
