@@ -2,10 +2,8 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/bitrise-io/go-steputils/v2/stepconf"
-	"github.com/bitrise-io/go-utils/sliceutil"
 	"github.com/bitrise-io/go-xcode/v2/autocodesign"
 	"github.com/bitrise-io/go-xcode/v2/codesign"
 )
@@ -25,7 +23,7 @@ type Config struct {
 	TeamID              string `env:"apple_team_id"`
 
 	CertificateURLList        string          `env:"certificate_url_list,required"`
-	CertificatePassphraseList stepconf.Secret `env:"passphrase_list,required"`
+	CertificatePassphraseList stepconf.Secret `env:"passphrase_list"`
 	KeychainPath              string          `env:"keychain_path,required"`
 	KeychainPassword          stepconf.Secret `env:"keychain_password,required"`
 	BuildAPIToken             string          `env:"build_api_token"`
@@ -37,23 +35,6 @@ type Config struct {
 // DistributionType ...
 func (c Config) DistributionType() autocodesign.DistributionType {
 	return autocodesign.DistributionType(c.Distribution)
-}
-
-// ValidateCertificates validates if the number of certificate URLs matches those of passphrases
-func (c Config) ValidateCertificates() ([]string, []string, error) {
-	pfxURLs := splitAndClean(c.CertificateURLList, "|", true)
-	passphrases := splitAndClean(string(c.CertificatePassphraseList), "|", false)
-
-	if len(pfxURLs) != len(passphrases) {
-		return nil, nil, fmt.Errorf("certificates count (%d) and passphrases count (%d) should match", len(pfxURLs), len(passphrases))
-	}
-
-	return pfxURLs, passphrases, nil
-}
-
-// SplitAndClean ...
-func splitAndClean(list string, sep string, omitEmpty bool) (items []string) {
-	return sliceutil.CleanWhitespace(strings.Split(list, sep), omitEmpty)
 }
 
 func parseAuthType(bitriseConnection string) (codesign.AuthType, error) {
