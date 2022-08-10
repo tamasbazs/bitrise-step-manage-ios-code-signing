@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bitrise-io/go-utils/retry"
+	"github.com/bitrise-io/go-xcode/v2/autocodesign/certdownloader"
+
 	"github.com/bitrise-io/go-steputils/tools"
 	"github.com/bitrise-io/go-steputils/v2/stepconf"
 	v1log "github.com/bitrise-io/go-utils/log"
-	"github.com/bitrise-io/go-utils/retry"
 	"github.com/bitrise-io/go-utils/v2/command"
 	"github.com/bitrise-io/go-utils/v2/env"
 	"github.com/bitrise-io/go-utils/v2/log"
@@ -15,7 +17,6 @@ import (
 	"github.com/bitrise-io/go-xcode/devportalservice"
 	"github.com/bitrise-io/go-xcode/utility"
 	"github.com/bitrise-io/go-xcode/v2/autocodesign"
-	"github.com/bitrise-io/go-xcode/v2/autocodesign/certdownloader"
 	"github.com/bitrise-io/go-xcode/v2/autocodesign/codesignasset"
 	"github.com/bitrise-io/go-xcode/v2/autocodesign/devportalclient"
 	"github.com/bitrise-io/go-xcode/v2/autocodesign/keychain"
@@ -98,27 +99,9 @@ func main() {
 		failf(err.Error())
 	}
 
-	// Create Apple developer Portal client
 	authType, err := parseAuthType(cfg.BitriseConnection)
 	if err != nil {
 		failf("Invalid input: unexpected value for Bitrise Apple Developer Connection (%s)", cfg.BitriseConnection)
-	}
-
-	var connection *devportalservice.AppleDeveloperConnection
-	isRunningOnBitrise := cfg.BuildURL != "" && cfg.BuildAPIToken != ""
-
-	switch {
-	case !isRunningOnBitrise:
-		fmt.Println()
-		failf(`Connected Apple Developer Portal Account not found. Step is not running on bitrise.io: BITRISE_BUILD_URL and BITRISE_BUILD_API_TOKEN envs are not set.
-               For testing purposes please provide BITRISE_BUILD_URL as json file (file://path-to-json) while setting BITRISE_BUILD_API_TOKEN to any non-empty string`)
-	default:
-		f := devportalclient.NewFactory(logger)
-		c, err := f.CreateBitriseConnection(cfg.BuildURL, cfg.BuildAPIToken)
-		if err != nil {
-			failf(err.Error())
-		}
-		connection = c
 	}
 
 	codesignInputs := codesign.Input{
@@ -134,7 +117,26 @@ func main() {
 	if err != nil {
 		failf(err.Error())
 	}
-	appleAuthCredentials, err := codesign.SelectConnectionCredentials(authType, connection, logger)
+
+	var connection *devportalservice.AppleDeveloperConnection
+	if cfg.BuildURL != "" && cfg.BuildAPIToken != "" {
+		f := devportalclient.NewFactory(logger)
+		connection, err = f.CreateBitriseConnection(cfg.BuildURL, cfg.BuildAPIToken)
+		if err != nil {
+			failf(err.Error())
+		}
+	} else {
+		logger.Warnf(`Connected Apple Developer Portal Account not found: BITRISE_BUILD_URL and BITRISE_BUILD_API_TOKEN envs are not set. 
+			The step will use the connection override inputs as a fallback. 
+			For testing purposes please provide BITRISE_BUILD_URL as json file (file://path-to-json) while setting BITRISE_BUILD_API_TOKEN to any non-empty string.`)
+	}
+
+	connectionInputs := codesign.ConnectionOverrideInputs{
+		APIKeyPath:     cfg.APIKeyPath,
+		APIKeyID:       cfg.APIKeyID,
+		APIKeyIssuerID: cfg.APIKeyIssuerID,
+	}
+	appleAuthCredentials, err := codesign.SelectConnectionCredentials(authType, connection, connectionInputs, logger)
 	if err != nil {
 		failf(err.Error())
 	}
@@ -172,7 +174,7 @@ func main() {
 	// Auto codesign
 	distribution := cfg.DistributionType()
 	var testDevices []devportalservice.TestDevice
-	if cfg.RegisterTestDevices {
+	if cfg.RegisterTestDevices && connection != nil {
 		testDevices = connection.TestDevices
 	}
 	codesignAssetsByDistributionType, err := manager.EnsureCodesignAssets(appLayout, autocodesign.CodesignAssetsOpts{

@@ -32,6 +32,8 @@ Before you start, make sure:
 4. **Scheme**: Add the scheme name you wish to archive your project later.
 5. **Build configuration**:Specify Xcode Build Configuration. The Step will use the provided Build Configuration's Build Settings, to understand your project's code signing configuration. If not provided, the Archive action's default Build Configuration will be used.
 
+If you want to set the Apple service connection credentials on the step-level (instead of using the one configured in the App Settings), use the Step inputs in the **App Store Connect connection override** category. Note that this only works if **Automatic code signing method** is set to `api-key`.
+
 Under **Options**:
 1. **Ensure code signing assets for UITest targets too**: If this input is set, the Step will manage the codesign settings of the UITest targets of the main Application.
 2. **Register test devices on the Apple Developer Portal**: If this input is set, the Step will register known test devices from team members with the Apple Developer Portal. Note that setting this to `yes` may cause devices to be registered against your limited quantity of test devices in the Apple Developer Portal, which can only be removed once annually during your renewal window.
@@ -75,6 +77,9 @@ You can also run this step directly with [Bitrise CLI](https://github.com/bitris
 | `keychain_password` | Password for the provided Keychain. | required, sensitive | `$BITRISE_KEYCHAIN_PASSWORD` |
 | `build_url` | URL of the current Bitrise build. |  | `$BITRISE_BUILD_URL` |
 | `build_api_token` | API token to access Bitrise resources during the current build. | sensitive | `$BITRISE_BUILD_API_TOKEN` |
+| `api_key_path` | Local path or remote URL to the private key (p8 file) for App Store Connect API.  This overrides the Bitrise-managed API connection, only set this input if you want to control the API connection on a step-level. Most of the time it's easier to set up the connection on the App Settings page on Bitrise.  The input value can be a file path (eg. `$TMPDIR/private_key.p8`) or an HTTPS URL.  This input only takes effect if the other two connection override inputs are set too (`api_key_id`, `api_key_issuer_id`). |  |  |
+| `api_key_id` | Private key ID used for App Store Connect authentication.  This overrides the Bitrise-managed API connection, only set this input if you want to control the API connection on a step-level. Most of the time it's easier to set up the connection on the App Settings page on Bitrise.  This input only takes effect if the other two connection override inputs are set too (`api_key_path`, `api_key_issuer_id`). |  |  |
+| `api_key_issuer_id` | Private key issuer ID used for App Store Connect authentication.  This overrides the Bitrise-managed API connection, only set this input if you want to control the API connection on a step-level. Most of the time it's easier to set up the connection on the App Settings page on Bitrise.  This input only takes effect if the other two connection override inputs are set too (`api_key_path`, `api_key_id`). |  |  |
 | `verbose_log` | If this input is set, the Step will produce verbose level log messages. | required | `no` |
 </details>
 
