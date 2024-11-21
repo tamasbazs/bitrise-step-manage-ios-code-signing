@@ -10,9 +10,9 @@ import (
 	"github.com/bitrise-io/go-utils/retry"
 	"github.com/bitrise-io/go-utils/v2/command"
 	"github.com/bitrise-io/go-utils/v2/env"
+	"github.com/bitrise-io/go-utils/v2/fileutil"
 	"github.com/bitrise-io/go-utils/v2/log"
 	"github.com/bitrise-io/go-xcode/certificateutil"
-	"github.com/bitrise-io/go-xcode/devportalservice"
 	"github.com/bitrise-io/go-xcode/utility"
 	"github.com/bitrise-io/go-xcode/v2/autocodesign"
 	"github.com/bitrise-io/go-xcode/v2/autocodesign/certdownloader"
@@ -22,6 +22,7 @@ import (
 	"github.com/bitrise-io/go-xcode/v2/autocodesign/localcodesignasset"
 	"github.com/bitrise-io/go-xcode/v2/autocodesign/projectmanager"
 	"github.com/bitrise-io/go-xcode/v2/codesign"
+	"github.com/bitrise-io/go-xcode/v2/devportalservice"
 	"github.com/bitrise-io/go-xcode/xcodebuild"
 )
 
@@ -117,9 +118,10 @@ func main() {
 		failf(err.Error())
 	}
 
+	fileManager := fileutil.NewFileManager()
 	var connection *devportalservice.AppleDeveloperConnection
 	if cfg.BuildURL != "" && cfg.BuildAPIToken != "" {
-		f := devportalclient.NewFactory(logger)
+		f := devportalclient.NewFactory(logger, fileManager)
 		connection, err = f.CreateBitriseConnection(cfg.BuildURL, cfg.BuildAPIToken)
 		if err != nil {
 			failf(err.Error())
@@ -131,9 +133,10 @@ func main() {
 	}
 
 	connectionInputs := codesign.ConnectionOverrideInputs{
-		APIKeyPath:     cfg.APIKeyPath,
-		APIKeyID:       cfg.APIKeyID,
-		APIKeyIssuerID: cfg.APIKeyIssuerID,
+		APIKeyPath:              cfg.APIKeyPath,
+		APIKeyID:                cfg.APIKeyID,
+		APIKeyIssuerID:          cfg.APIKeyIssuerID,
+		APIKeyEnterpriseAccount: cfg.APIKeyEnterpriseAccount,
 	}
 	appleAuthCredentials, err := codesign.SelectConnectionCredentials(authType, connection, connectionInputs, logger)
 	if err != nil {
@@ -145,7 +148,7 @@ func main() {
 		failf(fmt.Sprintf("failed to initialize keychain: %s", err))
 	}
 
-	devPortalClientFactory := devportalclient.NewFactory(logger)
+	devPortalClientFactory := devportalclient.NewFactory(logger, fileManager)
 	certDownloader := certdownloader.NewDownloader(codesignConfig.CertificatesAndPassphrases, retry.NewHTTPClient().StandardClient())
 	assetWriter := codesignasset.NewWriter(*keychain)
 	localCodesignAssetManager := localcodesignasset.NewManager(localcodesignasset.NewProvisioningProfileProvider(), localcodesignasset.NewProvisioningProfileConverter())
