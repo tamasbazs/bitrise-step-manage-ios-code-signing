@@ -3,7 +3,6 @@ package projectmanager
 import (
 	"errors"
 	"fmt"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
